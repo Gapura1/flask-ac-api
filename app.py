@@ -4,6 +4,11 @@ import os
 
 app = Flask(__name__)
 
+# Route utama untuk mengecek apakah API berjalan
+@app.route('/')
+def home():
+    return jsonify({"message": "API Flask berjalan dengan sukses!"})
+
 # Fungsi untuk mengambil data perawatan berdasarkan kode AC
 def get_maintenance_history(kode_ac):
     try:
@@ -53,12 +58,8 @@ def get_maintenance_history(kode_ac):
 def ac_history(kode_ac):
     return jsonify(get_maintenance_history(kode_ac))
 
-# Menjalankan server di Render
+# Menjalankan server di Render dengan Gunicorn
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))  # Menggunakan port dari environment Render
-    from waitress import serve  # Pastikan waitress sudah diinstal
     print(f"🚀 Server berjalan di http://0.0.0.0:{port}")
-    serve(app, host="0.0.0.0", port=port)
-@app.route('/')
-def home():
-    return jsonify({"message": "API Flask berjalan dengan sukses!"})
+    app.run(host="0.0.0.0", port=port)
