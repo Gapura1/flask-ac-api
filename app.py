@@ -1,27 +1,63 @@
-from flask import Flask, jsonify
+from flask import Flask, render_template_string
 import sqlite3
-import os
 
 app = Flask(__name__)
 
-# Route utama untuk mengecek apakah API berjalan
+# Template HTML untuk tampilan tabel histori AC
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Riwayat Perawatan AC</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid black; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <h2>Riwayat Perawatan AC - {{ kode_ac }}</h2>
+    {% if history %}
+    <table>
+        <tr>
+            <th>Kode AC</th>
+            <th>Tanggal</th>
+            <th>Teknisi</th>
+            <th>Jenis Perawatan</th>
+            <th>Keterangan</th>
+        </tr>
+        {% for row in history %}
+        <tr>
+            <td>{{ row[0] }}</td>
+            <td>{{ row[1] }}</td>
+            <td>{{ row[2] }}</td>
+            <td>{{ row[3] }}</td>
+            <td>{{ row[4] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+        <p>Data tidak ditemukan untuk kode AC: {{ kode_ac }}</p>
+    {% endif %}
+</body>
+</html>
+"""
+
 @app.route('/')
 def home():
-    return jsonify({"message": "API Flask berjalan dengan sukses!"})
+    return {"message": "API Flask berjalan dengan sukses!"}
 
-# Fungsi untuk mengambil data perawatan berdasarkan kode AC
-def get_maintenance_history(kode_ac):
+@app.route('/ac-history/<kode_ac>', methods=['GET'])
+def ac_history(kode_ac):
     try:
-        # Hubungkan ke database SQLite
-        db_path = os.path.join(os.getcwd(), "ac_maintenance.db")
-        if not os.path.exists(db_path):
-            print("⚠️ Database not found! Pastikan file ac_maintenance.db ada di server.")
-            return {"error": "Database not found on server"}
-
-        conn = sqlite3.connect(db_path)
+        # Koneksi ke database
+        conn = sqlite3.connect("ac_maintenance.db")
         cursor = conn.cursor()
 
-        # Query untuk mengambil data
+        # Query untuk mengambil histori perawatan berdasarkan kode AC
         cursor.execute("""
             SELECT kode_ac, tanggal, teknisi, jenis_perawatan, keterangan
             FROM maintenance_history
@@ -33,33 +69,11 @@ def get_maintenance_history(kode_ac):
         rows = cursor.fetchall()
         conn.close()
 
-        if not rows:
-            return {"error": f"No records found for AC: {kode_ac}"}
+        # Render data dalam bentuk HTML tabel
+        return render_template_string(HTML_TEMPLATE, kode_ac=kode_ac, history=rows)
 
-        history = [
-            {
-                "kode_ac": row[0],
-                "tanggal": row[1],
-                "teknisi": row[2],
-                "jenis_perawatan": row[3],
-                "keterangan": row[4]
-            }
-            for row in rows
-        ]
-
-        return {"history": history}
-    
     except Exception as e:
-        print(f"❌ Error: {str(e)}")
-        return {"error": str(e)}
+        return f"Error: {str(e)}"
 
-# Route API untuk mengambil data perawatan
-@app.route('/ac-history/<kode_ac>', methods=['GET'])
-def ac_history(kode_ac):
-    return jsonify(get_maintenance_history(kode_ac))
-
-# Menjalankan server di Render dengan Gunicorn
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))  # Menggunakan port dari environment Render
-    print(f"🚀 Server berjalan di http://0.0.0.0:{port}")
-    app.run(host="0.0.0.0", port=port)
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=10000)
